@@ -1,0 +1,174 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Warehouse Management System - Login</title>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;600;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="/static/css/style.css">
+    <style>
+        body {
+            margin: 0;
+            padding: 0;
+            font-family: 'Inter', sans-serif;
+            background: url('/images/login_bg.png') no-repeat center center fixed;
+            background-size: cover;
+            height: 100vh;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .login-container {
+            background: rgba(255, 255, 255, 0.1);
+            backdrop-filter: blur(20px);
+            -webkit-backdrop-filter: blur(20px);
+            border: 1px solid rgba(255, 255, 255, 0.2);
+            padding: 40px;
+            border-radius: 20px;
+            width: 400px;
+            max-width: 90%;
+            box-sizing: border-box;
+            box-shadow: 0 8px 32px 0 rgba(0, 0, 0, 0.3);
+            text-align: center;
+        }
+
+        .login-container h2 {
+            color: #fff;
+            margin-bottom: 30px;
+            font-weight: 600;
+            letter-spacing: 1px;
+        }
+
+        .input-group {
+            margin-bottom: 20px;
+            position: relative;
+        }
+
+        .toggle-password {
+            position: absolute;
+            right: 15px;
+            top: 50%;
+            transform: translateY(-50%);
+            cursor: pointer;
+            user-select: none;
+            font-size: 18px;
+            color: #666;
+            z-index: 10;
+        }
+
+        .input-group input {
+            width: 100%;
+            padding: 15px;
+            border-radius: 50px;
+            border: none;
+            outline: none;
+            font-size: 16px;
+            font-family: 'Inter', sans-serif;
+            box-sizing: border-box;
+            background: rgba(255, 255, 255, 0.9);
+            color: #333;
+            transition: transform 0.2s, box-shadow 0.2s;
+        }
+
+        .input-group input:focus {
+            transform: scale(1.02);
+            box-shadow: 0 4px 15px rgba(0,0,0,0.2);
+        }
+
+        .login-btn {
+            width: 100%;
+            padding: 15px;
+            border-radius: 50px;
+            border: none;
+            background: linear-gradient(135deg, #2563EB 0%, #1d4ed8 100%);
+            color: white;
+            font-size: 18px;
+            font-weight: bold;
+            cursor: pointer;
+            transition: transform 0.2s, box-shadow 0.2s;
+            margin-top: 10px;
+        }
+
+        .login-btn:hover {
+            transform: scale(1.02);
+            box-shadow: 0 4px 15px rgba(37, 99, 235, 0.4);
+        }
+
+        .error-msg {
+            color: #ff6b6b;
+            margin-top: 15px;
+            font-size: 14px;
+            display: none;
+        }
+    </style>
+</head>
+<body>
+
+    <div class="login-container">
+        <h2>Employee Login</h2>
+        <div class="input-group">
+            <input type="text" id="username" placeholder="Username" autocomplete="off">
+        </div>
+        <div class="input-group">
+            <input type="password" id="password" placeholder="Password" style="padding-right: 45px;">
+            <span class="toggle-password" id="togglePassword" title="Toggle Password Visibility">👁️</span>
+        </div>
+        <button class="login-btn" onclick="attemptLogin()">Login</button>
+        <div class="error-msg" id="errorMsg"></div>
+        <div style="margin-top: 20px; text-align: center;">
+            <a href="/admin" style="color: rgba(255, 255, 255, 0.8); text-decoration: underline; font-size: 14px;">Admin Login</a>
+        </div>
+    </div>
+
+    <script>
+        async function attemptLogin() {
+            const user = document.getElementById('username').value;
+            const pwd = document.getElementById('password').value;
+            const errorMsg = document.getElementById('errorMsg');
+
+            if (!user || !pwd) {
+                errorMsg.innerText = "All fields are required";
+                errorMsg.style.display = "block";
+                return;
+            }
+
+            try {
+                const res = await fetch('/api/login', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ username: user, password: pwd })
+                });
+                
+                const data = await res.json();
+                if (data.success) {
+                    window.location.href = '/dashboard';
+                } else {
+                    errorMsg.innerText = data.message;
+                    errorMsg.style.display = "block";
+                }
+            } catch (e) {
+                errorMsg.innerText = "Connection error";
+                errorMsg.style.display = "block";
+            }
+        }
+
+        // Enter key support
+        document.getElementById('password').addEventListener('keypress', function(e) {
+            if (e.key === 'Enter') attemptLogin();
+        });
+
+        // Toggle password visibility on hover
+        const togglePassword = document.getElementById('togglePassword');
+        const passwordInput = document.getElementById('password');
+
+        togglePassword.addEventListener('mouseenter', function() {
+            passwordInput.setAttribute('type', 'text');
+        });
+
+        togglePassword.addEventListener('mouseleave', function() {
+            passwordInput.setAttribute('type', 'password');
+        });
+    </script>
+</body>
+</html>

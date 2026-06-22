@@ -1,0 +1,708 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Barcode & QR Code System</title>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="/static/css/style.css">
+    <!-- html5-qrcode for browser-based scanning -->
+    <script src="https://unpkg.com/html5-qrcode"></script>
+    <!-- jsPDF for PDF export -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.5.28/jspdf.plugin.autotable.min.js"></script>
+    <!-- flatpickr for date range selection -->
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/flatpickr/dist/flatpickr.min.css">
+    <script src="https://cdn.jsdelivr.net/npm/flatpickr"></script>
+</head>
+<body>
+    <div class="app-container">
+        <!-- Header -->
+        <header class="main-header">
+            <div class="header-title">BARCODE & QR CODE SYSTEM (SCANNER & GENERATOR)</div>
+            <div class="header-right">
+                <div class="user-greeting" style="margin-right: 20px; font-weight: 500; font-size: 15px;">
+                    Welcome, {% if session.get('role') == 'admin' %}Admin{% else %}{{ session.get('user') }}{% endif %}
+                </div>
+                <div class="clock" id="clock">--:--:--</div>
+                <button class="logout-btn" onclick="logout()">Logout</button>
+            </div>
+        </header>
+
+        <!-- Tabs Navigation -->
+        <nav class="tabs-nav">
+            <button class="tab-btn active" onclick="switchTab('tab-api-converter')">API Converter</button>
+            <button class="tab-btn" onclick="switchTab('tab-generator')">QR Code & Product Generator</button>
+            <button class="tab-btn" onclick="switchTab('tab-scanner')">Live QR Scanner & Product Details</button>
+            <button class="tab-btn" onclick="switchTab('tab-inventory')">Inventory Summary</button>
+            <button class="tab-btn" onclick="switchTab('tab-tracking')">Product Tracking</button>
+            <button class="tab-btn" onclick="switchTab('tab-activity-log')">User Activity</button>
+        </nav>
+
+        <!-- Tab Content Area -->
+        <main class="tab-content-area">
+
+            <!-- TAB 5: API CONVERTER -->
+            <div id="tab-api-converter" class="tab-pane active">
+                <div class="converter-container" style="height: 100%; display: flex; flex-direction: column;">
+                    <div class="upload-section" style="flex-direction: column; align-items: stretch; gap: 15px;">
+                        <div style="display: flex; gap: 15px; align-items: center;">
+                            <label for="apiFile" style="font-weight: 600; width: 220px;">Upload API File (JSON/Text):</label>
+                            <input type="file" id="apiFile" accept=".json,.txt" style="flex: 1;">
+                            <button class="btn btn-blue" onclick="processFile()">Process File</button>
+                        </div>
+                        <div style="display: flex; gap: 15px; align-items: center;">
+                            <label for="apiUrl" style="font-weight: 600; width: 220px;">Or Fetch from API Link:</label>
+                            <input type="url" id="apiUrl" placeholder="https://api.example.com/data" style="flex: 1; padding: 10px; border: 1px solid #cbd5e1; border-radius: 6px;">
+                            <button class="btn btn-green" onclick="fetchAndProcessAPI()">Fetch Data</button>
+                        </div>
+                    </div>
+
+                    <div class="split-layout" style="flex: 1; min-height: 0;">
+                        <!-- Left Panel: Product IDs List -->
+                        <div class="panel" style="flex: 1; display: flex; flex-direction: column; overflow: hidden;">
+                            <div class="panel-header">Processed Products <span id="product-count" style="float:right; font-size:0.9em; color:#64748b;">0 items</span></div>
+                            <ul class="item-list" id="productList" style="flex: 1; overflow-y: auto;">
+                                <div class="no-data">Upload and process a file to see Product IDs here.</div>
+                            </ul>
+                        </div>
+
+                        <!-- Right Panel: Individual Details -->
+                        <div class="panel" style="flex: 2; display: flex; flex-direction: column; overflow: hidden;">
+                            <div class="panel-header">Product Details</div>
+                            <div id="productDetails" class="detail-grid" style="padding: 20px; overflow-y: auto; flex: 1;">
+                                <div class="no-data" style="grid-column: span 2;">Select a Product ID from the list to view its details.</div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        <!-- TAB 2: GENERATOR -->
+            <div id="tab-generator" class="tab-pane">
+                <div class="split-layout">
+                    <!-- Form -->
+                    <div class="panel form-panel">
+                        <div class="panel-header">Product details to embed in QR</div>
+                        <div class="form-scroll-area">
+                            <div class="form-group">
+                                <label>Product Code *</label>
+                                <input type="text" id="gen-pid" list="api-product-codes" onchange="autoLoadProduct()" onblur="autoLoadProduct()">
+                                <datalist id="api-product-codes"></datalist>
+                            </div>
+                            <div class="form-group">
+                                <label>productName *</label>
+                                <input type="text" id="gen-name">
+                            </div>
+                            <div class="form-group">
+                                <label>Category</label>
+                                <input type="text" id="gen-cat">
+                            </div>
+                            <div class="form-group">
+                                <label>Subcategory</label>
+                                <input type="text" id="gen-subcat">
+                            </div>
+
+                            <div class="form-group">
+                                <label>Brand</label>
+                                <input type="text" id="gen-brand">
+                            </div>
+                            <div class="form-group">
+                                <label>Status</label>
+                                <input type="text" id="gen-task-status">
+                            </div>
+                            <div class="form-group">
+                                <label>Warehouse</label>
+                                <select id="gen-wh">
+                                    <option value="KIZAD">KIZAD</option>
+                                    <option value="ALAIN">ALAIN</option>
+                                    <option value="SAJAA">SAJAA</option>
+                                    <option value="DUBAI">DUBAI</option>
+                                    <option value="saudi">saudi</option>
+                                    <option value="SAFECARE" selected>SAFECARE</option>
+                                    <option value="OTHERS">OTHERS</option>
+                                </select>
+                            </div>
+                            <div class="form-group">
+                                <label>Rack Number</label>
+                                <select id="gen-rack">
+                                    <option value="1">1</option><option value="2">2</option><option value="3">3</option><option value="4">4</option><option value="5">5</option><option value="6">6</option><option value="7">7</option><option value="8">8</option><option value="9">9</option><option value="10">10</option><option value="11">11</option><option value="12">12</option><option value="13">13</option><option value="14">14</option><option value="15">15</option><option value="16">16</option><option value="17">17</option><option value="18">18</option><option value="19">19</option><option value="20">20</option>
+                                </select>
+                            </div>
+                            <div class="form-group">
+                                <label>Shelf Number</label>
+                                <select id="gen-shelf">
+                                    <option value="1">1</option><option value="2">2</option><option value="3">3</option><option value="4">4</option><option value="5">5</option><option value="6">6</option><option value="7">7</option>
+                                </select>
+                            </div>
+                            <div class="form-group">
+                                <label>Bin / Pallet <span style="color:red">*</span></label>
+                                <select id="gen-bin-pallet">
+                                    <option value="Pallet">Pallet</option>
+                                    <option value="Bin">Bin</option>
+                                </select>
+                            </div>
+                            <div class="form-group">
+                                <label>Bin / Pallet No. <span style="color:red">*</span></label>
+                                <input type="text" id="gen-bin-pallet-no" placeholder="e.g. P-03">
+                            </div>
+                            <div class="form-group">
+                                <label>Batch No</label>
+                                <input type="text" id="gen-batch">
+                            </div>
+                            
+                            <input type="hidden" id="gen-current-qty" value="0">
+                            
+                            <div class="form-group">
+                                <label class="green-text">Qty to Add ➕</label>
+                                <input type="number" id="gen-add" value="0" onkeyup="previewBalance()">
+                            </div>
+                            <div class="form-group">
+                                <label class="red-text">Qty to Remove ➖</label>
+                                <input type="number" id="gen-remove" value="0" onkeyup="previewBalance()">
+                            </div>
+                            <div class="form-group">
+                                <label class="blue-text">Total Qty (Auto)</label>
+                                <input type="text" id="gen-total" readonly class="readonly">
+                            </div>
+                            <div class="form-group">
+                                <label class="orange-text">Balance Qty (Auto)</label>
+                                <input type="text" id="gen-balance" readonly class="readonly">
+                            </div>
+                            <div class="form-group">
+                                <label>Expiry Date</label>
+                                <input type="text" id="gen-expiry" placeholder="YYYY-MM-DD">
+                            </div>
+
+                            <div class="form-actions">
+                                <button class="btn btn-blue" onclick="saveAndGenerate()">Generate QR & Save</button>
+                                <button class="btn btn-gray" onclick="clearGenerator()">Clear Fields</button>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- QR Preview -->
+                    <div class="panel qr-panel">
+                        <div class="panel-header">Generated QR Code Preview</div>
+                        <div class="qr-preview-box">
+                            <img id="qr-img" src="" style="display:none; width:200px; height:200px; margin:20px auto;">
+                            <div id="qr-placeholder" style="color:grey; padding-top:100px; text-align:center;">Generate product to view QR code</div>
+                        </div>
+                        <div id="qr-path" style="font-size:12px; color:grey; margin-bottom: 20px;">File Path: --</div>
+                        <button class="btn btn-purple" onclick="printGenerated()" style="width:100%">Print QR Code</button>
+                    </div>
+                </div>
+            </div>
+
+            <!-- TAB 1: SCANNER -->
+            <div id="tab-scanner" class="tab-pane">
+                <div class="split-layout">
+                    <!-- Camera Feed -->
+                    <div class="panel cam-panel">
+                        <div class="panel-header">Live Camera Feed</div>
+                        <div class="cam-container" id="reader"></div>
+                        <div class="status-bar" id="scanner-status">STATUS: INACTIVE</div>
+                        <div class="controls">
+                            <button class="btn btn-green" onclick="startScanner()">Start Scanner</button>
+                            <button class="btn btn-red" onclick="stopScanner()">Stop Scanner</button>
+                            <button class="btn btn-blue" onclick="document.getElementById('qr-upload').click()">Upload</button>
+                            <input type="file" id="qr-upload" accept="image/*" style="display: none" onchange="scanUploadedFile(event)">
+                            <!-- Print button logic -->
+                            <button class="btn btn-purple" onclick="printScanned()">Print QR</button>
+                        </div>
+                    </div>
+                    
+                    <!-- Product Details -->
+                    <div class="panel details-panel">
+                        <div class="panel-header">Product Information Card</div>
+                        <div class="details-grid">
+                            <div class="detail-item"><label>Product ID:</label><span id="det-pid" class="blue-bold">--</span></div>
+                            <div class="detail-item"><label>Batch No:</label><span id="det-batch">--</span></div>
+                            <div class="detail-item"><label>Name:</label><span id="det-name" class="bold">--</span></div>
+                            <div class="detail-item"><label>Expiry Date:</label><span id="det-expiry" class="red-bold">--</span></div>
+                            <div class="detail-item"><label>Category:</label><span id="det-cat">--</span></div>
+                            <div class="detail-item"><label>Total Qty:</label><span id="det-total-qty" class="blue-bold">--</span></div>
+                            <div class="detail-item"><label>Brand:</label><span id="det-brand">--</span></div>
+                            <div class="detail-item"><label>Balance Qty:</label><span id="det-balance-qty" class="orange-bold">--</span></div>
+                            <div class="detail-item"><label>QR/Barcode:</label><span id="det-qr">--</span></div>
+                        </div>
+
+                        <div class="wh-breakdown">
+                            <div class="section-title">Warehouse Stock Breakdown</div>
+                            <table class="wh-table">
+                                <thead>
+                                    <tr>
+                                        <th>Warehouse</th>
+                                        <th>Rack</th>
+                                        <th>Shelf</th>
+                                        <th>Bin / Pallet</th>
+                                        <th>Stock Qty</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="det-wh-body">
+                                    <tr><td colspan="6" style="text-align:center;color:#888;">No warehouse data found.</td></tr>
+                                </tbody>
+                            </table>
+                        </div>
+
+                        <div class="manual-search">
+                            <label>Manual ID Query:</label>
+                            <input type="text" id="manual-search-input" placeholder="Enter Product ID">
+                            <button class="btn btn-blue" onclick="manualSearch()">Search</button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- TAB 3: INVENTORY SUMMARY -->
+            <div id="tab-inventory" class="tab-pane">
+                <div class="filters-bar">
+                    <div class="filter-item">
+                        <label>Category:</label>
+                        <select id="inv-cat" onchange="applyFilters()"><option>All Categories</option></select>
+                    </div>
+                    <div class="filter-item">
+                        <label>Warehouse:</label>
+                        <select id="inv-wh" onchange="applyFilters()"><option>All Warehouses</option></select>
+                    </div>
+                    <div class="filter-item">
+                        <label>Expiry Filter:</label>
+                        <select id="inv-exp" onchange="applyFilters()">
+                            <option>All (Valid + Expired)</option>
+                            <option>Valid</option>
+                            <option>Expiring within 30 days</option>
+                            <option>Expired</option>
+                        </select>
+                    </div>
+                    <div class="filter-item">
+                        <label>Search Product:</label>
+                        <input type="text" id="inv-search" onkeyup="applyFilters()">
+                    </div>
+                    <div class="filter-actions">
+                        <button class="btn btn-blue" onclick="loadInventory()">Refresh</button>
+                        <button class="btn btn-red" onclick="clearInvFilters()">Clear Filters</button>
+                        <button class="btn btn-purple" onclick="exportPDF()">Export PDF</button>
+                    </div>
+                </div>
+
+                <div class="cards-row">
+                    <div class="card"><div class="card-title">Total Products</div><div class="card-val" id="card-total-prod">0</div></div>
+                    <div class="card"><div class="card-title">Total Quantity</div><div class="card-val green-text" id="card-total-qty">0</div></div>
+                    <div class="card"><div class="card-title">Expired Products</div><div class="card-val red-text" id="card-expired">0</div></div>
+                    <div class="card"><div class="card-title">Expiring Within 30 Days</div><div class="card-val orange-text" id="card-expiring">0</div></div>
+                </div>
+
+                <div class="table-container">
+                    <table class="data-table" id="inventory-table">
+                        <thead>
+                            <tr>
+                                <th>#</th>
+                                <th>Product ID</th>
+                                <th>Product Name</th>
+                                <th>Category</th>
+                                <th>Brand</th>
+                                <th>Warehouse</th>
+                                <th>Rack</th>
+                                <th>Shelf</th>
+                                <th>Bin / Pallet</th>
+                                <th>Batch No</th>
+                                <th>Quantity</th>
+                                <th>Expiry Date</th>
+                                <th>Status</th>
+                                <th>Action</th>
+                            </tr>
+                        </thead>
+                        <tbody id="inv-tbody">
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+
+            <!-- TAB 4: PRODUCT TRACKING -->
+            <div id="tab-tracking" class="tab-pane">
+                <div class="filters-bar">
+                    <div class="filter-item">
+                        <label>Select Warehouse:</label>
+                        <select id="track-wh" onchange="loadTrackingMap()"><option>All Warehouses</option></select>
+                    </div>
+                    <div class="filter-item">
+                        <label>Search Item by Name:</label>
+                        <input type="text" id="track-search" placeholder="Enter Product ID or Name..." onkeypress="if(event.key==='Enter') searchTracking()">
+                    </div>
+                    <div class="filter-actions">
+                        <button class="btn btn-blue" onclick="searchTracking()">Search</button>
+                        <button class="btn btn-red" onclick="clearTracking()">Clear Filter</button>
+                    </div>
+                </div>
+
+                <div class="split-layout" style="height: calc(100% - 60px);">
+                    <div class="panel" style="display: none;">
+                        <div class="panel-header">Item Location Details</div>
+                        <div class="track-details" id="track-details-panel">
+                            <!-- Shown before any search -->
+                            <div id="track-no-search" style="text-align:center; color:#94a3b8; padding: 30px 10px; font-size:0.9rem;">
+                                🔍 Search for a product to view its location details.
+                            </div>
+
+                            <!-- Shown after a successful search -->
+                            <div id="track-result" style="display:none;">
+                                <div id="track-cards-container"></div>
+                            </div>
+
+                            <!-- Shown when not found -->
+                            <div id="track-not-found" style="display:none; text-align:center; color:#ef4444; padding:30px 10px; font-size:0.9rem;">
+                                ⚠️ Product not found.
+                            </div>
+                        </div>
+                        <div style="padding: 0 20px 20px; display: none;">
+                            <button class="btn move-btn" id="move-item-btn" onclick="openMoveModal()" disabled>🔄 Move Item</button>
+                        </div>
+                    </div>
+                    <div class="panel" style="flex: 1; overflow: auto; position:relative;">
+                        <div class="panel-header">Warehouse Layout Map</div>
+                        <div id="map-container" style="padding: 20px;">
+                            <!-- Dynamic canvas-like rendering via JS -->
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+                <!-- TAB 6: USER ACTIVITY LOG -->
+            <div id="tab-activity-log" class="tab-pane" style="background-color: #f8fafc;">
+                <div class="panel" style="height: 100%; display: flex; flex-direction: column; background: transparent; border: none; box-shadow: none;">
+                    
+                    <!-- Header -->
+                    <div style="margin-bottom: 20px;">
+                        <h2 style="margin:0; font-size:22px; color:#0f172a; font-weight:600;">User Activity</h2>
+                        <p style="margin:5px 0 0; color:#64748b; font-size:14px;">View all user activities including login, logout, and inventory changes.</p>
+                    </div>
+
+                    <!-- Filter Bar -->
+                    <div class="filters-bar" style="background: white; padding: 15px 20px; border-radius: 8px; box-shadow: 0 1px 2px rgba(0,0,0,0.05); margin-bottom: 20px; display: flex; gap: 15px; align-items: center; border: 1px solid #e2e8f0;">
+                        <div class="filter-item" style="flex: 1; margin: 0; display: flex; align-items: center; background: white; border: 1px solid #cbd5e1; border-radius: 6px; padding: 0 10px;">
+                            <input type="text" id="log-date-range" placeholder="Select Date Range" style="border: none; outline: none; padding: 10px 5px; width: 100%; font-size: 14px;" onkeyup="filterActivityLogs()">
+                            <svg width="16" height="16" fill="none" stroke="#94a3b8" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"></path></svg>
+                        </div>
+                        <div class="filter-item" style="flex: 1; margin: 0;">
+                            <select id="log-user" style="width: 100%; padding: 10px; border: 1px solid #cbd5e1; border-radius: 6px; font-size: 14px;" onchange="filterActivityLogs()">
+                                <option value="all">All Users</option>
+                            </select>
+                        </div>
+                        <div class="filter-item" style="flex: 1; margin: 0;">
+                            <select id="log-activity-type" style="width: 100%; padding: 10px; border: 1px solid #cbd5e1; border-radius: 6px; font-size: 14px;" onchange="filterActivityLogs()">
+                                <option value="all">All Activities</option>
+                                <option value="Login">Login</option>
+                                <option value="Logout">Logout</option>
+                                <option value="Add">Add</option>
+                                <option value="Remove">Remove</option>
+                            </select>
+                        </div>
+                        <button class="btn btn-blue" onclick="filterActivityLogs()" style="display: flex; align-items: center; gap: 8px; padding: 10px 20px;">
+                            <svg width="16" height="16" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 4a1 1 0 011-1h16a1 1 0 011 1v2.586a1 1 0 01-.293.707l-6.414 6.414a1 1 0 00-.293.707V17l-4 4v-6.586a1 1 0 00-.293-.707L3.293 7.293A1 1 0 013 6.586V4z"></path></svg>
+                            Filter
+                        </button>
+                        <button class="btn btn-white" onclick="exportLogsPDF()" style="background: white; border: 1px solid #cbd5e1; color: #334155; display: flex; align-items: center; gap: 8px; padding: 10px 20px;">
+                            <svg width="16" height="16" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"></path></svg>
+                            Export
+                        </button>
+                    </div>
+
+                    <!-- Table -->
+                    <div style="flex: 1; overflow-y: auto; background: white; border-radius: 8px; box-shadow: 0 1px 2px rgba(0,0,0,0.05); border: 1px solid #e2e8f0; padding: 0;">
+                        <table class="inventory-table" style="width: 100%; border-collapse: collapse; margin: 0;">
+                            <thead>
+                                <tr style="background-color: #f8fafc; border-bottom: 1px solid #e2e8f0;">
+                                    <th style="padding: 15px 20px; text-align: left; color: #475569; font-weight: 600; width: 50px;"></th>
+                                    <th style="padding: 15px 20px; text-align: left; color: #475569; font-weight: 600;">Date & Time</th>
+                                    <th style="padding: 15px 20px; text-align: left; color: #475569; font-weight: 600;">User Name</th>
+                                    <th style="padding: 15px 20px; text-align: left; color: #475569; font-weight: 600;">Activity Type</th>
+                                    <th style="padding: 15px 20px; text-align: left; color: #475569; font-weight: 600;">Product ID</th>
+                                    <th style="padding: 15px 20px; text-align: left; color: #475569; font-weight: 600;">Product Name</th>
+                                    <th style="padding: 15px 20px; text-align: left; color: #475569; font-weight: 600;">Warehouse</th>
+                                    <th style="padding: 15px 20px; text-align: left; color: #475569; font-weight: 600;">Qty</th>
+                                    <th style="padding: 15px 20px; text-align: left; color: #475569; font-weight: 600;">Action</th>
+                                    <th style="padding: 15px 20px; text-align: left; color: #475569; font-weight: 600;">Remarks</th>
+                                </tr>
+                            </thead>
+                            <tbody id="activity-log-body">
+                                <tr><td colspan="10" style="text-align:center; color:#888; padding: 20px;">Loading logs...</td></tr>
+                            </tbody>
+                        </table>
+                        
+                        <div class="pagination-footer" style="display: flex; justify-content: space-between; align-items: center; padding: 15px 20px; border-top: 1px solid #e2e8f0; background: white;">
+                            <div id="log-entries-info" style="color: #64748b; font-size: 14px;">Showing 0 to 0 of 0 entries</div>
+                            <div class="pagination-controls" style="display: flex; gap: 5px;">
+                                <button class="page-btn" id="log-prev-btn" onclick="changeLogPage(-1)" style="padding: 8px 12px; border: 1px solid #cbd5e1; background: white; border-radius: 4px; color: #64748b; cursor: pointer;">Previous</button>
+                                <button class="page-btn active" id="log-page-num" style="padding: 8px 12px; border: 1px solid #3b82f6; background: #3b82f6; border-radius: 4px; color: white;">1</button>
+                                <button class="page-btn" id="log-next-btn" onclick="changeLogPage(1)" style="padding: 8px 12px; border: 1px solid #cbd5e1; background: white; border-radius: 4px; color: #64748b; cursor: pointer;">Next</button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+        </main>
+    </div>
+
+    <!-- Add an invisible iframe for printing -->
+    <iframe id="printFrame" style="display:none;"></iframe>
+
+    <style>
+        #alert-modal .data-table {
+            table-layout: fixed;
+            width: 100%;
+        }
+        #alert-modal .data-table td {
+            overflow: hidden;
+            text-overflow: ellipsis;
+            white-space: nowrap;
+        }
+    </style>
+
+    <!-- ===== ALERTS MODAL ===== -->
+    <div id="alert-modal" class="modal-overlay" style="display:none; z-index: 9999;" role="dialog" aria-modal="true" aria-labelledby="alert-modal-title">
+        <div class="modal-box" style="max-width: 600px;">
+            <div class="modal-header">
+                <div>
+                    <h2 id="alert-modal-title" style="margin:0; font-size:1.2rem; color: #EF4444;">⚠️ Inventory Alerts</h2>
+                    <p style="margin:4px 0 0; font-size:0.85rem; opacity:0.8;">Items requiring your attention</p>
+                </div>
+                <button class="modal-close-x" onclick="closeAlertModal()" title="Close">✕</button>
+            </div>
+            <div style="padding: 20px; max-height: 60vh; overflow-y: auto; overflow-x: hidden;">
+                <div id="low-stock-container" style="display:none; margin-bottom: 20px;">
+                    <h3 style="color: #F59E0B; margin-bottom: 10px;">📉 Low Stock</h3>
+                    <table class="data-table" style="font-size: 0.85rem; width: 100%;">
+                        <thead>
+                            <tr><th style="text-align:left; width: 55%;">Product Name</th><th style="text-align:left; width: 20%;">Warehouse</th><th style="text-align:left; width: 25%;">Available Qty</th></tr>
+                        </thead>
+                        <tbody id="low-stock-tbody"></tbody>
+                    </table>
+                </div>
+                <div id="expiring-soon-container" style="display:none;">
+                    <h3 style="color: #EF4444; margin-bottom: 10px;">⏳ Expiring Soon</h3>
+                    <table class="data-table" style="font-size: 0.85rem; width: 100%;">
+                        <thead>
+                            <tr><th style="text-align:left; width: 40%;">Product Name</th><th style="text-align:left; width: 20%;">Warehouse</th><th style="text-align:left; width: 18%;">Quantity</th><th style="text-align:left; width: 22%;">Expiry Date</th></tr>
+                        </thead>
+                        <tbody id="expiring-soon-tbody"></tbody>
+                    </table>
+                </div>
+            </div>
+            <div class="step-actions" style="padding: 15px 20px; border-top: 1px solid #e2e8f0; justify-content: flex-end;">
+                <button class="btn btn-blue" onclick="closeAlertModal()">Acknowledge</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- ===== MOVE ITEM MODAL ===== -->
+    <div id="move-modal" class="modal-overlay" style="display:none;" role="dialog" aria-modal="true" aria-labelledby="move-modal-title">
+        <div class="modal-box">
+            <!-- Header -->
+            <div class="modal-header">
+                <div>
+                    <h2 id="move-modal-title" style="margin:0; font-size:1.2rem;">🔄 Move Item Workflow</h2>
+                    <p style="margin:4px 0 0; font-size:0.85rem; opacity:0.8;">Step <span id="move-step-num">1</span> of 8</p>
+                </div>
+                <button class="modal-close-x" onclick="closeMoveModal()" title="Close">✕</button>
+            </div>
+
+            <!-- Stepper -->
+            <div class="stepper" id="move-stepper">
+                <div class="step-dot active" id="sdot-1" title="Select Item">1</div>
+                <div class="step-line"></div>
+                <div class="step-dot" id="sdot-2" title="Pick Item">2</div>
+                <div class="step-line"></div>
+                <div class="step-dot" id="sdot-3" title="Move to Rack">3</div>
+                <div class="step-line"></div>
+                <div class="step-dot" id="sdot-4" title="Select New Location">4</div>
+                <div class="step-line"></div>
+                <div class="step-dot" id="sdot-5" title="Place Item">5</div>
+                <div class="step-line"></div>
+                <div class="step-dot" id="sdot-6" title="Update WMS">6</div>
+                <div class="step-line"></div>
+                <div class="step-dot" id="sdot-7" title="Confirm">7</div>
+                <div class="step-line"></div>
+                <div class="step-dot" id="sdot-8" title="Done">8</div>
+            </div>
+
+            <!-- Step panels -->
+            <div class="steps-container">
+
+                <!-- STEP 1: Select Item -->
+                <div class="step-panel active" id="move-step-1">
+                    <div class="step-icon">📦</div>
+                    <h3 class="step-title">Select Item to Move</h3>
+                    <p class="step-desc">Enter the Product ID or Name of the item you want to move.</p>
+                    <div class="step-form-group">
+                        <label for="move-search-input">Product ID or Name</label>
+                        <input type="text" id="move-search-input" placeholder="e.g. P001 or Bedsheet" autocomplete="off" onkeypress="if(event.key==='Enter') moveSelectItem()">
+                    </div>
+                    <div id="move-step1-error" class="step-error" style="display:none;"></div>
+                    <div class="step-actions">
+                        <button class="btn btn-blue" onclick="moveSelectItem()">Search &amp; Select →</button>
+                    </div>
+                </div>
+
+                <!-- STEP 2: Pick from Current Location -->
+                <div class="step-panel" id="move-step-2">
+                    <div class="step-icon">🤏</div>
+                    <h3 class="step-title">Pick Item from Current Location</h3>
+                    <p class="step-desc">Confirm the current location of the item before picking it up.</p>
+                    <div class="move-location-card from-card">
+                        <div class="loc-label">CURRENT LOCATION</div>
+                        <div class="loc-row"><span class="loc-key">Item:</span><span id="mv-from-name" class="loc-val bold">--</span></div>
+                        <div class="loc-row"><span class="loc-key">Product ID:</span><span id="mv-from-pid" class="loc-val">--</span></div>
+                        <div class="loc-row"><span class="loc-key">Warehouse:</span><span id="mv-from-wh" class="loc-val">--</span></div>
+                        <div class="loc-row"><span class="loc-key">Rack:</span><span id="mv-from-rack" class="loc-val blue-bold">--</span></div>
+                        <div class="loc-row"><span class="loc-key">Shelf:</span><span id="mv-from-shelf" class="loc-val blue-bold">--</span></div>
+                        <div class="loc-row"><span class="loc-key">Available Qty:</span><span id="mv-from-qty" class="loc-val green-text bold">--</span></div>
+                    </div>
+                    <div id="move-step2-error" class="step-error" style="display:none;"></div>
+                    <div class="step-actions">
+                        <button class="btn btn-gray" onclick="moveStep(1)">← Back</button>
+                        <button class="btn btn-green" onclick="movePickItem()">✔ Pick Item →</button>
+                    </div>
+                </div>
+
+                <!-- STEP 3: Moving Animation -->
+                <div class="step-panel" id="move-step-3">
+                    <div class="step-icon">🚚</div>
+                    <h3 class="step-title">Moving Item to New Rack</h3>
+                    <p class="step-desc">Item has been picked. Now transport it to the destination rack.</p>
+                    <div class="move-animation-area">
+                        <div class="move-anim-box from-anim">
+                            <div class="anim-icon">📦</div>
+                            <div class="anim-label" id="anim-from-label">Rack --</div>
+                        </div>
+                        <div class="move-arrow-track">
+                            <div class="move-arrow-truck">🚚</div>
+                        </div>
+                        <div class="move-anim-box to-anim">
+                            <div class="anim-icon">🏭</div>
+                            <div class="anim-label" id="anim-to-placeholder">New Rack</div>
+                        </div>
+                    </div>
+                    <div class="step-actions">
+                        <button class="btn btn-gray" onclick="moveStep(2)">← Back</button>
+                        <button class="btn btn-blue" onclick="moveStep(4)">Continue →</button>
+                    </div>
+                </div>
+
+                <!-- STEP 4: Select New Location -->
+                <div class="step-panel" id="move-step-4">
+                    <div class="step-icon">📍</div>
+                    <h3 class="step-title">Select New Rack &amp; Shelf Location</h3>
+                    <p class="step-desc">Choose the destination warehouse, rack and shelf for this item.</p>
+                    <div class="step-form-group">
+                        <label for="move-to-wh">Destination Warehouse</label>
+                        <select id="move-to-wh"></select>
+                    </div>
+                    <div class="step-form-group">
+                        <label for="move-to-rack">New Rack Number</label>
+                        <select id="move-to-rack">
+                            <option value="1">1</option><option value="2">2</option><option value="3">3</option><option value="4">4</option><option value="5">5</option><option value="6">6</option><option value="7">7</option><option value="8">8</option><option value="9">9</option><option value="10">10</option><option value="11">11</option><option value="12">12</option><option value="13">13</option><option value="14">14</option><option value="15">15</option><option value="16">16</option><option value="17">17</option><option value="18">18</option><option value="19">19</option><option value="20">20</option>
+                        </select>
+                    </div>
+                    <div class="step-form-group">
+                        <label for="move-to-shelf">New Shelf Number</label>
+                        <select id="move-to-shelf">
+                            <option value="1">1</option><option value="2">2</option><option value="3">3</option><option value="4">4</option><option value="5">5</option><option value="6">6</option><option value="7">7</option>
+                        </select>
+                    </div>
+                    <div id="move-step4-error" class="step-error" style="display:none;"></div>
+                    <div class="step-actions">
+                        <button class="btn btn-gray" onclick="moveStep(3)">← Back</button>
+                        <button class="btn btn-blue" onclick="moveSelectNewLocation()">Confirm Location →</button>
+                    </div>
+                </div>
+
+                <!-- STEP 5: Place Item -->
+                <div class="step-panel" id="move-step-5">
+                    <div class="step-icon">📥</div>
+                    <h3 class="step-title">Place Item in New Location</h3>
+                    <p class="step-desc">Enter how many units you are placing at the new location.</p>
+                    <div class="move-location-card to-card">
+                        <div class="loc-label">NEW LOCATION</div>
+                        <div class="loc-row"><span class="loc-key">Warehouse:</span><span id="mv-to-wh-disp" class="loc-val">--</span></div>
+                        <div class="loc-row"><span class="loc-key">Rack:</span><span id="mv-to-rack-disp" class="loc-val blue-bold">--</span></div>
+                        <div class="loc-row"><span class="loc-key">Shelf:</span><span id="mv-to-shelf-disp" class="loc-val blue-bold">--</span></div>
+                    </div>
+                    <div class="step-form-group" style="margin-top:16px;">
+                        <label for="move-qty">Quantity to Move</label>
+                        <input type="number" id="move-qty" min="1" placeholder="Enter quantity" autocomplete="off">
+                    </div>
+                    <div id="move-step5-error" class="step-error" style="display:none;"></div>
+                    <div class="step-actions">
+                        <button class="btn btn-gray" onclick="moveStep(4)">← Back</button>
+                        <button class="btn btn-green" onclick="movePlaceItem()">✔ Place Item →</button>
+                    </div>
+                </div>
+
+                <!-- STEP 6: Update WMS -->
+                <div class="step-panel" id="move-step-6">
+                    <div class="step-icon">⚙️</div>
+                    <h3 class="step-title">Updating WMS...</h3>
+                    <p class="step-desc">Sending movement data to the Warehouse Management System.</p>
+                    <div class="wms-spinner">
+                        <div class="spinner-ring"></div>
+                        <div class="spinner-label" id="wms-spinner-label">Connecting to WMS...</div>
+                    </div>
+                    <div id="move-step6-error" class="step-error" style="display:none;"></div>
+                    <div class="step-actions" id="wms-retry-btn" style="display:none; justify-content:center;">
+                        <button class="btn btn-blue" onclick="moveUpdateWMS()">🔄 Try Again</button>
+                    </div>
+                </div>
+
+                <!-- STEP 7: Confirm Movement -->
+                <div class="step-panel" id="move-step-7">
+                    <div class="step-icon">✅</div>
+                    <h3 class="step-title">Confirm Movement</h3>
+                    <p class="step-desc">Please review the movement details below before finalising.</p>
+                    <div class="move-summary-card">
+                        <div class="summary-row">
+                            <div class="summary-half from-half">
+                                <div class="summary-badge">FROM</div>
+                                <div class="summary-detail" id="sum-from-wh"></div>
+                                <div class="summary-detail rack-detail" id="sum-from-rack"></div>
+                                <div class="summary-detail" id="sum-from-shelf"></div>
+                            </div>
+                            <div class="summary-arrow-mid">→</div>
+                            <div class="summary-half to-half">
+                                <div class="summary-badge to-badge">TO</div>
+                                <div class="summary-detail" id="sum-to-wh"></div>
+                                <div class="summary-detail rack-detail" id="sum-to-rack"></div>
+                                <div class="summary-detail" id="sum-to-shelf"></div>
+                            </div>
+                        </div>
+                        <div class="summary-qty-row">
+                            <span>Quantity Moving:</span>
+                            <span class="summary-qty" id="sum-qty">0</span>
+                        </div>
+                    </div>
+                    <div class="step-actions">
+                        <button class="btn btn-gray" onclick="closeMoveModal()">Cancel</button>
+                        <button class="btn btn-green" onclick="moveConfirm()">✔ Confirm &amp; Update →</button>
+                    </div>
+                </div>
+
+                <!-- STEP 8: Success -->
+                <div class="step-panel" id="move-step-8">
+                    <div class="move-success">
+                        <div class="success-checkmark">
+                            <svg viewBox="0 0 52 52"><circle class="checkmark-circle" cx="26" cy="26" r="25" fill="none"/><path class="checkmark-check" fill="none" d="M14 27l8 8 16-16"/></svg>
+                        </div>
+                        <h3 class="success-title">Inventory Updated Successfully!</h3>
+                        <p class="success-desc" id="success-summary-text"></p>
+                    </div>
+                    <div class="step-actions" style="justify-content:center;">
+                        <button class="btn btn-blue" onclick="closeMoveModal()">Close &amp; Refresh Map</button>
+                    </div>
+                </div>
+
+            </div><!-- /steps-container -->
+        </div><!-- /modal-box -->
+    </div><!-- /move-modal -->
+
+    <script src="/static/js/main.js?v=3"></script>
+</body>
+</html>

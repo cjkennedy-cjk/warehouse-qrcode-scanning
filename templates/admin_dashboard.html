@@ -1,0 +1,238 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Warehouse Management System - Admin Dashboard</title>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="/static/css/style.css">
+    <style>
+        .admin-panel {
+            padding: 20px;
+            max-width: 1000px;
+            margin: 0 auto;
+        }
+        .admin-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 30px;
+        }
+        .admin-title {
+            font-size: 24px;
+            font-weight: 600;
+            color: #1e293b;
+        }
+        .employee-list {
+            background: white;
+            border-radius: 8px;
+            box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1);
+            overflow: hidden;
+            margin-bottom: 30px;
+        }
+        .employee-table {
+            width: 100%;
+            border-collapse: collapse;
+        }
+        .employee-table th, .employee-table td {
+            padding: 15px 20px;
+            text-align: left;
+            border-bottom: 1px solid #e2e8f0;
+        }
+        .employee-table th {
+            background-color: #f8fafc;
+            font-weight: 600;
+            color: #475569;
+        }
+        .add-employee-form {
+            background: white;
+            border-radius: 8px;
+            box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1);
+            padding: 20px;
+        }
+        .form-row {
+            display: flex;
+            gap: 15px;
+            align-items: flex-end;
+        }
+        .form-group {
+            flex: 1;
+            margin-bottom: 0;
+        }
+    </style>
+</head>
+<body>
+    <div class="app-container">
+        <!-- Header -->
+        <header class="main-header" style="background: linear-gradient(135deg, #0f172a 0%, #1e293b 100%);">
+            <div class="header-title">ADMINISTRATOR DASHBOARD</div>
+            <div class="header-right" style="display: flex; align-items: center;">
+                <div class="user-greeting" style="margin-right: 20px; font-weight: 500; font-size: 15px; color: #fff;">
+                    Welcome, Admin
+                </div>
+                <div class="clock" id="clock" style="margin-right: 15px;">--:--:--</div>
+                <button class="logout-btn" onclick="logout()">Logout</button>
+            </div>
+        </header>
+
+        <!-- Tab Content Area -->
+        <main class="tab-content-area" style="background-color: #f1f5f9;">
+            <div class="admin-panel">
+                <div class="admin-header">
+                    <h2 class="admin-title">Employee Management</h2>
+                    <button class="btn btn-blue" onclick="window.location.href='/dashboard'">Go to Warehouse Dashboard</button>
+                </div>
+
+                <div class="add-employee-form">
+                    <h3 style="margin-top: 0; margin-bottom: 15px; color: #334155;">Add New Employee</h3>
+                    <div class="form-row">
+                        <div class="form-group">
+                            <label>Username</label>
+                            <input type="text" id="new-emp-username" placeholder="Employee Username">
+                        </div>
+                        <div class="form-group">
+                            <label>Password</label>
+                            <input type="text" id="new-emp-password" placeholder="Employee Password">
+                        </div>
+                        <button class="btn btn-green" style="height: 42px;" onclick="addEmployee()">Add Employee</button>
+                    </div>
+                    <div id="add-emp-msg" style="margin-top: 10px; font-size: 14px; display: none;"></div>
+                </div>
+
+                <h3 style="margin-top: 30px; margin-bottom: 15px; color: #334155;">Current Employees</h3>
+                <div class="employee-list">
+                    <table class="employee-table">
+                        <thead>
+                            <tr>
+                                <th>ID</th>
+                                <th>Username</th>
+                                <th>Password</th>
+                                <th>Actions</th>
+                            </tr>
+                        </thead>
+                        <tbody id="employee-tbody">
+                            <tr><td colspan="4" style="text-align: center; color: #64748b;">Loading employees...</td></tr>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </main>
+    </div>
+
+    <script>
+        // Clock functionality
+        function updateClock() {
+            const now = new Date();
+            document.getElementById('clock').innerText = now.toLocaleTimeString('en-US', { hour12: false });
+        }
+        setInterval(updateClock, 1000);
+        updateClock();
+
+        // Logout functionality
+        async function logout() {
+            try {
+                await fetch('/api/logout', { method: 'POST' });
+                window.location.href = '/admin';
+            } catch (e) {
+                console.error('Logout error:', e);
+            }
+        }
+
+        // Load employees
+        async function loadEmployees() {
+            try {
+                const res = await fetch('/api/admin/employees');
+                const data = await res.json();
+                
+                const tbody = document.getElementById('employee-tbody');
+                tbody.innerHTML = '';
+                
+                if (data.success && data.employees.length > 0) {
+                    data.employees.forEach(emp => {
+                        const tr = document.createElement('tr');
+                        tr.innerHTML = `
+                            <td>${emp.id}</td>
+                            <td><strong>${emp.username}</strong></td>
+                            <td style="font-family: monospace;">${emp.password}</td>
+                            <td>
+                                <button class="btn btn-red" style="padding: 6px 12px; font-size: 12px;" onclick="deleteEmployee(${emp.id}, '${emp.username}')">Remove</button>
+                            </td>
+                        `;
+                        tbody.appendChild(tr);
+                    });
+                } else {
+                    tbody.innerHTML = '<tr><td colspan="4" style="text-align: center; color: #64748b;">No employees found.</td></tr>';
+                }
+            } catch (e) {
+                console.error('Error loading employees:', e);
+            }
+        }
+
+        // Add employee
+        async function addEmployee() {
+            const usernameInput = document.getElementById('new-emp-username');
+            const passwordInput = document.getElementById('new-emp-password');
+            const msgDiv = document.getElementById('add-emp-msg');
+            
+            const username = usernameInput.value.trim();
+            const password = passwordInput.value.trim();
+            
+            if (!username || !password) {
+                msgDiv.textContent = 'Both username and password are required.';
+                msgDiv.style.color = '#ef4444';
+                msgDiv.style.display = 'block';
+                return;
+            }
+            
+            try {
+                const res = await fetch('/api/admin/employees', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ username, password })
+                });
+                const data = await res.json();
+                
+                if (data.success) {
+                    usernameInput.value = '';
+                    passwordInput.value = '';
+                    msgDiv.textContent = 'Employee added successfully!';
+                    msgDiv.style.color = '#10b981';
+                    msgDiv.style.display = 'block';
+                    setTimeout(() => { msgDiv.style.display = 'none'; }, 3000);
+                    loadEmployees();
+                } else {
+                    msgDiv.textContent = data.message || 'Failed to add employee.';
+                    msgDiv.style.color = '#ef4444';
+                    msgDiv.style.display = 'block';
+                }
+            } catch (e) {
+                msgDiv.textContent = 'Connection error.';
+                msgDiv.style.color = '#ef4444';
+                msgDiv.style.display = 'block';
+            }
+        }
+
+        // Delete employee
+        async function deleteEmployee(id, username) {
+            if (!confirm(`Are you sure you want to remove employee '${username}'?`)) {
+                return;
+            }
+            
+            try {
+                const res = await fetch(`/api/admin/employees/${id}`, { method: 'DELETE' });
+                const data = await res.json();
+                if (data.success) {
+                    loadEmployees();
+                } else {
+                    alert('Failed to delete employee: ' + (data.message || 'Unknown error'));
+                }
+            } catch (e) {
+                alert('Connection error while deleting employee.');
+            }
+        }
+
+        // Initial load
+        window.onload = loadEmployees;
+    </script>
+</body>
+</html>

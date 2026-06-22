@@ -1,0 +1,323 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>API File Converter</title>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="/static/css/style.css">
+    <style>
+        .converter-container {
+            padding: 20px;
+            height: calc(100vh - 60px);
+            overflow-y: auto;
+        }
+        .header-actions {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 20px;
+        }
+        .back-btn {
+            background-color: #475569;
+            color: white;
+            border: none;
+            padding: 10px 20px;
+            border-radius: 6px;
+            cursor: pointer;
+            font-weight: 500;
+        }
+        .upload-section {
+            background: #fff;
+            padding: 20px;
+            border-radius: 10px;
+            box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1);
+            margin-bottom: 20px;
+            display: flex;
+            align-items: center;
+            gap: 15px;
+        }
+        .upload-section input[type="file"] {
+            border: 1px solid #cbd5e1;
+            padding: 10px;
+            border-radius: 6px;
+        }
+        .split-layout {
+            display: flex;
+            gap: 20px;
+            height: calc(100% - 150px);
+        }
+        .list-panel {
+            flex: 1;
+            background: #fff;
+            border-radius: 10px;
+            box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1);
+            display: flex;
+            flex-direction: column;
+            overflow: hidden;
+        }
+        .detail-panel {
+            flex: 2;
+            background: #fff;
+            border-radius: 10px;
+            box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1);
+            padding: 20px;
+            overflow-y: auto;
+        }
+        .panel-header {
+            background: #f8fafc;
+            padding: 15px 20px;
+            font-weight: 600;
+            border-bottom: 1px solid #e2e8f0;
+            color: #1e293b;
+        }
+        .item-list {
+            list-style: none;
+            padding: 0;
+            margin: 0;
+            overflow-y: auto;
+            flex: 1;
+        }
+        .item-list li {
+            padding: 15px 20px;
+            border-bottom: 1px solid #e2e8f0;
+            cursor: pointer;
+            transition: background 0.2s;
+            display: flex;
+            justify-content: space-between;
+        }
+        .item-list li:hover {
+            background: #f1f5f9;
+        }
+        .item-list li.active {
+            background: #e0f2fe;
+            border-left: 4px solid #0284c7;
+        }
+        .detail-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 15px;
+        }
+        .detail-item {
+            background: #f8fafc;
+            padding: 15px;
+            border-radius: 6px;
+            border: 1px solid #e2e8f0;
+        }
+        .detail-label {
+            font-size: 0.85rem;
+            color: #64748b;
+            margin-bottom: 5px;
+            text-transform: uppercase;
+            font-weight: 600;
+        }
+        .detail-value {
+            font-size: 1.1rem;
+            color: #0f172a;
+            font-weight: 500;
+            word-break: break-all;
+        }
+        .no-data {
+            text-align: center;
+            color: #94a3b8;
+            padding: 40px 20px;
+            font-style: italic;
+        }
+    </style>
+</head>
+<body>
+    <div class="app-container">
+        <!-- Header -->
+        <header class="main-header">
+            <div class="header-title">BARCODE & QR CODE SYSTEM - API CONVERTER</div>
+            <div class="header-right">
+                <button class="logout-btn" onclick="window.location.href='/api/logout'">Logout</button>
+            </div>
+        </header>
+
+        <div class="converter-container">
+            <div class="header-actions">
+                <h2>API File to JSON Processor</h2>
+                <button class="back-btn" onclick="window.location.href='/dashboard'">← Back to Dashboard</button>
+            </div>
+
+            <div class="upload-section">
+                <label for="apiFile" style="font-weight: 600;">Upload API File (JSON/Text):</label>
+                <input type="file" id="apiFile" accept=".json,.txt">
+                <button class="btn btn-blue" onclick="processFile()">Process File</button>
+            </div>
+
+            <div class="split-layout">
+                <!-- Left Panel: Product IDs List -->
+                <div class="list-panel">
+                    <div class="panel-header">Processed Products <span id="product-count" style="float:right; font-size:0.9em; color:#64748b;">0 items</span></div>
+                    <ul class="item-list" id="productList">
+                        <div class="no-data">Upload and process a file to see Product IDs here.</div>
+                    </ul>
+                </div>
+
+                <!-- Right Panel: Individual Details -->
+                <div class="detail-panel">
+                    <div class="panel-header" style="margin: -20px -20px 20px -20px; border-radius: 10px 10px 0 0;">Product Details</div>
+                    <div id="productDetails" class="detail-grid">
+                        <div class="no-data" style="grid-column: span 2;">Select a Product ID from the list to view its details.</div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        let globalProcessedData = [];
+
+        // Load existing data immediately
+        async function loadStoredData() {
+            try {
+                const res = await fetch('/api/get-api-data');
+                const result = await res.json();
+                if (result.success && result.data && result.data.length > 0) {
+                    globalProcessedData = result.data;
+                    populateProductList();
+                } else if (!result.success) {
+                    console.error("Server returned error:", result.message);
+                }
+            } catch (err) {
+                console.error("Error loading stored data:", err);
+            }
+        }
+        
+        // Call it immediately
+        loadStoredData();
+
+        function processFile() {
+            const fileInput = document.getElementById('apiFile');
+            const file = fileInput.files[0];
+            
+            if (!file) {
+                alert("Please select a file first.");
+                return;
+            }
+
+            const reader = new FileReader();
+            reader.onload = async function(e) {
+                try {
+                    const content = e.target.result;
+                    let jsonData;
+                    
+                    try {
+                        jsonData = JSON.parse(content);
+                    } catch (err) {
+                        alert("Invalid JSON format. Please ensure the API file is a valid JSON.");
+                        return;
+                    }
+
+                    // Attempt to find the array of items if the JSON is an object
+                    let itemsArray = [];
+                    if (Array.isArray(jsonData)) {
+                        itemsArray = jsonData;
+                    } else {
+                        // Look for the first key that contains an array
+                        for (let key in jsonData) {
+                            if (Array.isArray(jsonData[key])) {
+                                itemsArray = jsonData[key];
+                                break;
+                            }
+                        }
+                        // If no array found, just wrap the object in an array
+                        if (itemsArray.length === 0) {
+                            itemsArray = [jsonData];
+                        }
+                    }
+
+                    globalProcessedData = itemsArray;
+                    populateProductList();
+
+                    // Save data to server for persistence
+                    try {
+                        const res = await fetch('/api/save-api-data', {
+                            method: 'POST',
+                            headers: { 'Content-Type': 'application/json' },
+                            body: JSON.stringify(itemsArray)
+                        });
+                        const saveResult = await res.json();
+                        if (!saveResult.success) {
+                            console.error("Failed to save data on server.");
+                        }
+                    } catch (err) {
+                        console.error("Error saving data:", err);
+                    }
+                    
+                } catch (error) {
+                    console.error("Error processing file:", error);
+                    alert("An error occurred while processing the file.");
+                }
+            };
+            reader.readAsText(file);
+        }
+
+        function populateProductList() {
+            const listEl = document.getElementById('productList');
+            const countEl = document.getElementById('product-count');
+            listEl.innerHTML = '';
+            
+            if (globalProcessedData.length === 0) {
+                listEl.innerHTML = '<div class="no-data">No data found in the file.</div>';
+                countEl.innerText = '0 items';
+                return;
+            }
+
+            countEl.innerText = globalProcessedData.length + ' items';
+
+            globalProcessedData.forEach((item, index) => {
+                // Try to determine the best ID to display
+                let displayId = item.product_id || item.productCode || item.id || item.ProductId || item.ID || `Item #${index + 1}`;
+                let displayName = item.name || item.title || item.ProductName || '';
+
+                const li = document.createElement('li');
+                li.innerHTML = `<strong>${displayId}</strong> <span style="color:#64748b; font-size:0.9em;">${displayName}</span>`;
+                li.onclick = () => {
+                    // Remove active class from all
+                    document.querySelectorAll('.item-list li').forEach(el => el.classList.remove('active'));
+                    li.classList.add('active');
+                    showDetails(index);
+                };
+                li.ondblclick = () => {
+                    window.location.href = `/dashboard?tab=generator&pid=${encodeURIComponent(displayId)}`;
+                };
+                listEl.appendChild(li);
+            });
+            
+            // Clear details view
+            document.getElementById('productDetails').innerHTML = '<div class="no-data" style="grid-column: span 2;">Select a Product ID from the list to view its details.</div>';
+        }
+
+        function showDetails(index) {
+            const item = globalProcessedData[index];
+            const detailsEl = document.getElementById('productDetails');
+            detailsEl.innerHTML = '';
+
+            if (!item || typeof item !== 'object') {
+                detailsEl.innerHTML = '<div class="no-data" style="grid-column: span 2;">Invalid item data.</div>';
+                return;
+            }
+
+            // Create cards for each property
+            for (let key in item) {
+                // Skip complex nested objects for a cleaner UI, or stringify them
+                let val = item[key];
+                if (typeof val === 'object' && val !== null) {
+                    val = JSON.stringify(val);
+                }
+
+                const div = document.createElement('div');
+                div.className = 'detail-item';
+                div.innerHTML = `
+                    <div class="detail-label">${key.replace(/_/g, ' ')}</div>
+                    <div class="detail-value">${val !== null && val !== undefined && val !== '' ? val : '--'}</div>
+                `;
+                detailsEl.appendChild(div);
+            }
+        }
+    </script>
+</body>
+</html>

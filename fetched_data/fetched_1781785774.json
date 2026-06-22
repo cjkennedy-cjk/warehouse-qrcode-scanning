@@ -1,0 +1,19 @@
+{
+    "productCode": "A81100-11523",
+    "productName": "100ML SYR.+1.5COILED PATIENT TUBING+SPIKE APOLLO RT REF:A81100-11523",
+    "basicUom": "PCS",
+    "category": "RADIOLOGY",
+    "stockQty": 3.0,
+    "details": [
+        {
+            "branch": "ABUDHABI",
+            "warehouse": "KIZAD AUH ASRS 1",
+            "stockLocation": "NEW BABY RACK ASRS 1",
+            "stockArea": "NEW BABY RACK",
+            "binArea": "NEW BIN",
+            "batchNo": "20240301",
+            "expiryDate": "2027-02-28",
+            "quantity": 3.0
+        }
+    ]
+}
