@@ -1,0 +1,13 @@
+[project]
+name = "warehouse-qrcode-system"
+version = "0.1.0"
+requires-python = ">=3.9"
+dependencies = [
+    "Flask",
+    "gunicorn",
+    "pymysql",
+    "qrcode",
+]
+
+[tool.vercel]
+entrypoint = "qr_system:app"
