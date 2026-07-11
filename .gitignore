@@ -1,0 +1,6 @@
+dist/
+.venv/
+__pycache__/
+fetched_data/
+images/qrcodes/
+*.spec
